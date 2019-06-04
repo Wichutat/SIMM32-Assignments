@@ -1,0 +1,102 @@
+# SIMM32-Assignments
+
+* Encoding: UTF-8.
+
+*dataset1: checking frequencies of all variables to be used
+
+FREQUENCIES VARIABLES=pain age weight sex_female STAI_trait pain_cat cortisol_serum 
+    cortisol_saliva mindfulness
+  /NTILES=4
+  /STATISTICS=STDDEV RANGE MINIMUM MAXIMUM MEAN MEDIAN MODE SUM SKEWNESS SESKEW KURTOSIS SEKURT
+  /HISTOGRAM NORMAL
+  /ORDER=ANALYSIS.
+
+*everything seems fine. no strange values
+
+*dataset1 proceed to stepwise (backward) regression
+
+REGRESSION
+  /MISSING LISTWISE
+  /STATISTICS COEFF OUTS CI(95) BCOV R ANOVA COLLIN TOL CHANGE SELECTION
+  /CRITERIA=PIN(.05) POUT(.10)
+  /NOORIGIN 
+  /DEPENDENT pain
+  /METHOD=BACKWARD age sex_female weight STAI_trait pain_cat mindfulness cortisol_serum 
+  /SCATTERPLOT=(*ZRESID ,*ZPRED)
+  /RESIDUALS NORMPROB(ZRESID).
+
+
+*dataset1 run a regression using the backward model
+
+REGRESSION
+  /MISSING LISTWISE
+  /STATISTICS COEFF OUTS CI(95) BCOV R ANOVA COLLIN TOL CHANGE SELECTION
+  /CRITERIA=PIN(.05) POUT(.10)
+  /NOORIGIN 
+  /DEPENDENT pain
+  /METHOD=ENTER age sex_female pain_cat mindfulness cortisol_serum
+  /SCATTERPLOT=(*ZRESID ,*ZPRED)
+  /RESIDUALS NORMPROB(ZRESID).
+
+*dataset1 compare the original model submitted for backward model and the (final) backward model
+
+REGRESSION
+  /MISSING LISTWISE
+  /STATISTICS COEFF OUTS CI(95) BCOV R ANOVA COLLIN TOL CHANGE SELECTION
+  /CRITERIA=PIN(.05) POUT(.10)
+  /NOORIGIN 
+  /DEPENDENT pain
+  /METHOD=ENTER age sex_female weight STAI_trait pain_cat mindfulness cortisol_serum
+  /METHOD=REMOVE weight STAI_trait
+  /SCATTERPLOT=(*ZRESID ,*ZPRED)
+  /RESIDUALS NORMPROB(ZRESID).
+
+*open Dataset2, run frequencies and the analysis will use the dataset2 from here on
+
+FREQUENCIES VARIABLES=pain age sex STAI_trait pain_cat cortisol_serum cortisol_saliva mindfulness 
+    weight 
+  /NTILES=4
+  /STATISTICS=STDDEV RANGE MINIMUM MAXIMUM SEMEAN MEAN MEDIAN MODE SUM SKEWNESS SESKEW KURTOSIS 
+    SEKURT
+  /HISTOGRAM NORMAL
+  /ORDER=ANALYSIS.
+
+*everything seems fine
+
+*recode sex into dummy and compute cortisol mean
+
+RECODE sex ('male'=0) ('female'=1) (MISSING=SYSMIS) INTO sex_female.
+EXECUTE.
+
+COMPUTE cortisol=MEAN(cortisol_serum,cortisol_saliva).
+EXECUTE.
+
+*dataset2 prediction calculated by the backward model
+
+COMPUTE Pred_backward=4.357-(age*0.065)-(sex_female*0.338)+(pain_cat*0.068)-(mindfulness*0.268)+
+    (cortisol_serum*0.426).
+EXECUTE.
+
+
+*dataset2 prediction calculated by the theory model
+
+COMPUTE Pred_theory=3.51-(age*0.058)-(sex_female*0.33)+(STAI_trait*0.002)+(pain_cat*0.069)-(mindfulness*0.233)+(cortisol*0.489).
+EXECUTE.
+
+
+*dataset2 calculate the square of residuals of the backward model
+
+COMPUTE RES_pred_backward=(pain-Pred_backward)*(pain-Pred_backward).
+EXECUTE.
+
+
+*dataset2 calculate the square of residuals of the theory model
+
+COMPUTE RES_pred_theory=(pain-Pred_theory)*(pain-Pred_theory).
+EXECUTE.
+
+*dataset2 run the descriptive table of both Sum of Squares to see which one has higher (more errors)
+
+DESCRIPTIVES VARIABLES=RES_pred_backward RES_pred_theory
+  /STATISTICS=MEAN SUM STDDEV MIN MAX.
+

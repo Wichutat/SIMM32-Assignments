@@ -1,7 +1,7 @@
 
 
 * Encoding: UTF-8.
-*dataset1: checking frequencies of all variables to be used
+
 
 FREQUENCIES VARIABLES=pain age weight sex STAI_trait pain_cat cortisol_serum 
     cortisol_saliva mindfulness
@@ -18,6 +18,7 @@ EXECUTE.
 
 *run a regression for the initial backward model to save the residuals
 
+
 REGRESSION
   /MISSING LISTWISE
   /STATISTICS COEFF OUTS CI(95) BCOV R ANOVA COLLIN TOL SELECTION
@@ -29,7 +30,9 @@ REGRESSION
   /RESIDUALS NORMPROB(ZRESID)
   /SAVE PRED COOK RESID.
 
+
 *cook distance check
+
 
 * Chart Builder.
 GGRAPH
@@ -83,6 +86,7 @@ BEGIN GPL
   GUIDE: text.title(label("Simple Scatter of pain by age"))
   ELEMENT: point(position(age*pain))
 END GPL.
+
 *compute sq_age
 
 COMPUTE age_sq=age*age.
@@ -118,24 +122,8 @@ BEGIN GPL
   ELEMENT: point(position(STAI_trait*pain))
 END GPL.
 
-*create STAI_trait_sq
 
-COMPUTE STAI_trait_sq=STAI_trait * STAI_trait.
-EXECUTE.
-
-*run a regression by adding STAI_trait_sq
-
-REGRESSION
-  /MISSING LISTWISE
-  /STATISTICS COEFF OUTS CI(95) BCOV R ANOVA COLLIN TOL CHANGE
-  /CRITERIA=PIN(.05) POUT(.10)
-  /NOORIGIN 
-  /DEPENDENT pain
-  /METHOD=ENTER age sex_female STAI_trait pain_cat cortisol_serum mindfulness weight
-    STAI_trait_sq
-  /SCATTERPLOT=(*ZRESID ,*ZPRED)
-  /RESIDUALS NORMPROB(ZRESID).
-
+*the STAI_trait seems to be a linear relationship and thus does not need to be transform in a higher term
 
 *2.3 check for the linearity of pain_cat and pain
 * Chart Builder.
@@ -188,7 +176,22 @@ BEGIN GPL
   ELEMENT: point(position(mindfulness*pain))
 END GPL.
 
-*the mindfulness seems to be a linear relationship and thus does not need to be transform in a higher term
+*create mindfulness_sq to be put into the model
+
+COMPUTE mindfulness_sq=mindfulness*mindfulness.
+EXECUTE.
+
+*run a regression by adding mindfulness_sq
+
+REGRESSION
+  /MISSING LISTWISE
+  /STATISTICS COEFF OUTS CI(95) BCOV R ANOVA COLLIN TOL CHANGE
+  /CRITERIA=PIN(.05) POUT(.10)
+  /NOORIGIN 
+  /DEPENDENT pain
+  /METHOD=ENTER age sex_female STAI_trait pain_cat cortisol_serum mindfulness weight mindfulness_sq
+  /SCATTERPLOT=(*ZRESID ,*ZPRED)
+  /RESIDUALS NORMPROB(ZRESID).
 
 *2.5 check for the linearity of cortisol_serum and pain
 * Chart Builder.
@@ -206,23 +209,7 @@ BEGIN GPL
   ELEMENT: point(position(cortisol_serum*pain))
 END GPL.
 
-*create cortisol_serum_sq
-
-COMPUTE Cortisol_serum_sq=cortisol_serum*cortisol_serum.
-EXECUTE.
-
-*run a regression by adding cortisol_serum_sq
-
-REGRESSION
-  /MISSING LISTWISE
-  /STATISTICS COEFF OUTS CI(95) BCOV R ANOVA COLLIN TOL CHANGE
-  /CRITERIA=PIN(.05) POUT(.10)
-  /NOORIGIN 
-  /DEPENDENT pain
-  /METHOD=ENTER age sex_female STAI_trait pain_cat cortisol_serum mindfulness Cortisol_serum_sq weight
-  /SCATTERPLOT=(*ZRESID ,*ZPRED)
-  /RESIDUALS NORMPROB(ZRESID).
-
+*the cortisol_serum seems to be a linear relationship and thus does not need to be transform in a higher term
 
 *2.6 check for the linearity of weight and pain
 * Chart Builder.
@@ -316,51 +303,3 @@ REGRESSION
   /METHOD=REMOVE weight STAI_trait
   /SCATTERPLOT=(*ZRESID ,*ZPRED)
   /RESIDUALS NORMPROB(ZRESID).
-
-*open Dataset2, run frequencies and the analsys will use dataset2 from here on
-
-FREQUENCIES VARIABLES=pain age sex STAI_trait pain_cat cortisol_serum cortisol_saliva mindfulness 
-    weight 
-  /NTILES=4
-  /STATISTICS=STDDEV RANGE MINIMUM MAXIMUM SEMEAN MEAN MEDIAN MODE SUM SKEWNESS SESKEW KURTOSIS 
-    SEKURT
-  /HISTOGRAM NORMAL
-  /ORDER=ANALYSIS.
-
-*recode sex into dummy and compute cortisol mean
-
-RECODE sex ('male'=0) ('female'=1) (MISSING=SYSMIS) INTO sex_female.
-EXECUTE.
-
-COMPUTE cortisol=MEAN(cortisol_serum,cortisol_saliva).
-EXECUTE.
-
-*dataset2 prediction calculated by the backward model
-
-COMPUTE Pred_backward=4.357-(age*0.065)-(sex_female*0.338)+(pain_cat*0.068)-(mindfulness*0.268)+
-    (cortisol_serum*0.426).
-EXECUTE.
-
-
-*dataset2 prediction calculated by the theory model
-
-COMPUTE Pred_theory=3.51-(age*0.058)-(sex_female*0.33)+(STAI_trait*0.002)+(pain_cat*0.069)-(mindfulness*0.233)+(cortisol*0.489).
-EXECUTE.
-
-
-*dataset2 calculate the square of residuals of the backward model
-
-COMPUTE RES_pred_backward=(pain-Pred_backward)*(pain-Pred_backward).
-EXECUTE.
-
-
-*dataset2 calculate the square of residuals of the theory model
-
-COMPUTE RES_pred_theory=(pain-Pred_theory)*(pain-Pred_theory).
-EXECUTE.
-
-*dataset2 run the descriptive table of both Sum of Squares to see which one has higher (more errors)
-
-DESCRIPTIVES VARIABLES=RES_pred_backward RES_pred_theory
-  /STATISTICS=MEAN SUM STDDEV MIN MAX.
-

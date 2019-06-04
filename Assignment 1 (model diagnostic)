@@ -81,11 +81,10 @@ USE ALL.
 EXECUTE.
 
 
-*Modeldiagnostic
+*Model diagnostic
 *1.Normality of residuals for all cases
 
 *1.1 examine
-
 
 EXAMINE VARIABLES=RES_1
   /PLOT BOXPLOT HISTOGRAM NPPLOT
@@ -278,7 +277,7 @@ REGRESSION
   /SCATTERPLOT=(*ZRESID ,*ZPRED)
   /RESIDUALS NORMPROB(ZRESID).
 
-*2.5 check for the linearity of cortisol_saliva and pain
+*2.6 check for the linearity of cortisol_saliva and pain
 * Chart Builder.
 GGRAPH
   /GRAPHDATASET NAME="graphdataset" VARIABLES=cortisol_saliva pain MISSING=LISTWISE REPORTMISSING=NO    
@@ -314,6 +313,10 @@ REGRESSION
     Cortisol_saliva_sq
   /SCATTERPLOT=(*ZRESID ,*ZPRED)
   /RESIDUALS NORMPROB(ZRESID).
+  
+  *linearity seems fine
+  
+  
 
 *3.Homoscedasticity
 
@@ -331,6 +334,9 @@ REGRESSION
   /METHOD=ENTER age sex_female
   /METHOD=ENTER age sex_female STAI_trait pain_cat cortisol_serum cortisol_saliva mindfulness 
   /RESIDUALS NORMPROB(ZRESID).
+  
+  *homoscedasticity seems fine
+  
 
 *4.Multicollinearity
 *According to the original regression model, VIF of cortisol_serum and cortisol_saliva is high
@@ -365,7 +371,6 @@ REGRESSION
 COMPUTE Cortisol=MEAN(cortisol_serum,cortisol_saliva).
 EXECUTE.
 
-
 *run a regression with the new combined cortisol variable instead of cortisol_serum and cortisol_saliva
 
 REGRESSION
@@ -379,3 +384,4 @@ REGRESSION
   /SCATTERPLOT=(*ZRESID ,*ZPRED)
   /RESIDUALS HISTOGRAM(ZRESID) NORMPROB(ZRESID).
 
+*the above is the final model

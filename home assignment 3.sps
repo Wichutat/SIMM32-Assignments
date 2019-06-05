@@ -1,0 +1,428 @@
+﻿* Encoding: UTF-8.
+
+*dataset3
+
+*check frequencies
+
+DATASET ACTIVATE DataSet2.
+FREQUENCIES VARIABLES=pain sex age STAI_trait pain_cat cortisol_serum cortisol_saliva mindfulness 
+    weight
+  /NTILES=4
+  /STATISTICS=STDDEV MINIMUM MAXIMUM SEMEAN MEAN MEDIAN MODE SKEWNESS SESKEW KURTOSIS SEKURT
+  /HISTOGRAM NORMAL
+  /ORDER=ANALYSIS.
+
+*recode sex into dummy
+
+RECODE sex ('male'=0) ('female'=1) (MISSING=SYSMIS) INTO sex_female.
+EXECUTE.
+
+*created mean for cortisols
+
+COMPUTE cortisol=MEAN(cortisol_serum,cortisol_saliva).
+EXECUTE.
+
+
+
+*Model diagnostic
+*check for outliers visually
+
+
+* Chart Builder.
+GGRAPH
+  /GRAPHDATASET NAME="graphdataset" VARIABLES=hospital pain MISSING=LISTWISE REPORTMISSING=NO
+  /GRAPHSPEC SOURCE=INLINE.
+BEGIN GPL
+  SOURCE: s=userSource(id("graphdataset"))
+  DATA: hospital=col(source(s), name("hospital"), unit.category())
+  DATA: pain=col(source(s), name("pain"))
+  DATA: id=col(source(s), name("$CASENUM"), unit.category())
+  GUIDE: axis(dim(1), label("hospital"))
+  GUIDE: axis(dim(2), label("pain"))
+  GUIDE: text.title(label("Simple Boxplot of pain by hospital"))
+  SCALE: linear(dim(2), include(0))
+  ELEMENT: schema(position(bin.quantile.letter(hospital*pain)), label(id))
+END GPL.
+
+
+*run a regression to save a residual
+
+MIXED pain BY sex_female WITH age STAI_trait pain_cat mindfulness cortisol
+  /CRITERIA=CIN(95) MXITER(100) MXSTEP(10) SCORING(1) SINGULAR(0.000000000001) HCONVERGE(0, 
+    ABSOLUTE) LCONVERGE(0, ABSOLUTE) PCONVERGE(0.000001, ABSOLUTE)
+  /FIXED=sex_female age STAI_trait pain_cat mindfulness cortisol | SSTYPE(3)
+  /METHOD=REML
+  /PRINT=SOLUTION
+  /RANDOM=INTERCEPT | SUBJECT(hospital) COVTYPE(VC)
+  /SAVE= PRED RESID.
+
+
+*1. normality of residuals
+
+
+EXAMINE VARIABLES=RESID_1
+  /PLOT BOXPLOT STEMLEAF HISTOGRAM NPPLOT
+  /COMPARE GROUPS
+  /STATISTICS DESCRIPTIVES
+  /CINTERVAL 95
+  /MISSING LISTWISE
+  /NOTOTAL.
+
+*try excluding case 52 (the variable 'excluded' has to be computed manually)
+
+USE ALL.
+FILTER BY excluded.
+EXECUTE.
+
+EXAMINE VARIABLES=RESID_1
+  /PLOT BOXPLOT STEMLEAF HISTOGRAM NPPLOT
+  /COMPARE GROUPS
+  /STATISTICS DESCRIPTIVES
+  /CINTERVAL 95
+  /MISSING LISTWISE
+  /NOTOTAL.
+
+*skewness and kurtosis are ok before excluding. So, I'm keeping the case 52
+
+
+USE ALL.
+FILTER OFF.
+EXECUTE.
+
+
+*2. linearity
+
+*between predicted values and residuals
+
+* Chart Builder.
+GGRAPH
+  /GRAPHDATASET NAME="graphdataset" VARIABLES=PRED_1 RESID_1 MISSING=LISTWISE REPORTMISSING=NO
+  /GRAPHSPEC SOURCE=INLINE
+  /FITLINE TOTAL=NO.
+BEGIN GPL
+  SOURCE: s=userSource(id("graphdataset"))
+  DATA: PRED_1=col(source(s), name("PRED_1"))
+  DATA: RESID_1=col(source(s), name("RESID_1"))
+  GUIDE: axis(dim(1), label("Predicted Values"))
+  GUIDE: axis(dim(2), label("Residuals"))
+  GUIDE: text.title(label("Simple Scatter of Residuals by Predicted Values"))
+  ELEMENT: point(position(PRED_1*RESID_1))
+END GPL.
+
+
+
+*2.1 between age and REDSID_!
+
+* Chart Builder.
+GGRAPH
+  /GRAPHDATASET NAME="graphdataset" VARIABLES=age RESID_1 MISSING=LISTWISE REPORTMISSING=NO
+  /GRAPHSPEC SOURCE=INLINE
+  /FITLINE TOTAL=NO.
+BEGIN GPL
+  SOURCE: s=userSource(id("graphdataset"))
+  DATA: age=col(source(s), name("age"))
+  DATA: RESID_1=col(source(s), name("RESID_1"))
+  GUIDE: axis(dim(1), label("age"))
+  GUIDE: axis(dim(2), label("Residuals"))
+  GUIDE: text.title(label("Simple Scatter of Residuals by age"))
+  ELEMENT: point(position(age*RESID_1))
+END GPL.
+
+
+
+*2.2 between STAI_trait and REDSID_!
+
+
+* Chart Builder.
+GGRAPH
+  /GRAPHDATASET NAME="graphdataset" VARIABLES=STAI_trait RESID_1 MISSING=LISTWISE REPORTMISSING=NO
+  /GRAPHSPEC SOURCE=INLINE
+  /FITLINE TOTAL=NO.
+BEGIN GPL
+  SOURCE: s=userSource(id("graphdataset"))
+  DATA: STAI_trait=col(source(s), name("STAI_trait"))
+  DATA: RESID_1=col(source(s), name("RESID_1"))
+  GUIDE: axis(dim(1), label("STAI_trait"))
+  GUIDE: axis(dim(2), label("Residuals"))
+  GUIDE: text.title(label("Simple Scatter of Residuals by STAI_trait"))
+  ELEMENT: point(position(STAI_trait*RESID_1))
+END GPL.
+
+*2.3 between pain_cat and REDSID_!
+
+
+* Chart Builder.
+GGRAPH
+  /GRAPHDATASET NAME="graphdataset" VARIABLES=pain_cat RESID_1 MISSING=LISTWISE REPORTMISSING=NO
+  /GRAPHSPEC SOURCE=INLINE
+  /FITLINE TOTAL=NO.
+BEGIN GPL
+  SOURCE: s=userSource(id("graphdataset"))
+  DATA: pain_cat=col(source(s), name("pain_cat"))
+  DATA: RESID_1=col(source(s), name("RESID_1"))
+  GUIDE: axis(dim(1), label("pain_cat"))
+  GUIDE: axis(dim(2), label("Residuals"))
+  GUIDE: text.title(label("Simple Scatter of Residuals by pain_cat"))
+  ELEMENT: point(position(pain_cat*RESID_1))
+END GPL.
+
+
+*2.4 between mindfulness and REDSID_!
+
+* Chart Builder.
+GGRAPH
+  /GRAPHDATASET NAME="graphdataset" VARIABLES=mindfulness RESID_1 MISSING=LISTWISE REPORTMISSING=NO
+  /GRAPHSPEC SOURCE=INLINE
+  /FITLINE TOTAL=NO.
+BEGIN GPL
+  SOURCE: s=userSource(id("graphdataset"))
+  DATA: mindfulness=col(source(s), name("mindfulness"))
+  DATA: RESID_1=col(source(s), name("RESID_1"))
+  GUIDE: axis(dim(1), label("mindfulness"))
+  GUIDE: axis(dim(2), label("Residuals"))
+  GUIDE: text.title(label("Simple Scatter of Residuals by mindfulness"))
+  ELEMENT: point(position(mindfulness*RESID_1))
+END GPL.
+
+
+*2.5 between cortisol and REDSID_!
+
+
+* Chart Builder.
+GGRAPH
+  /GRAPHDATASET NAME="graphdataset" VARIABLES=cortisol RESID_1 MISSING=LISTWISE REPORTMISSING=NO
+  /GRAPHSPEC SOURCE=INLINE
+  /FITLINE TOTAL=NO.
+BEGIN GPL
+  SOURCE: s=userSource(id("graphdataset"))
+  DATA: cortisol=col(source(s), name("cortisol"))
+  DATA: RESID_1=col(source(s), name("RESID_1"))
+  GUIDE: axis(dim(1), label("cortisol"))
+  GUIDE: axis(dim(2), label("Residuals"))
+  GUIDE: text.title(label("Simple Scatter of Residuals by cortisol"))
+  ELEMENT: point(position(cortisol*RESID_1))
+END GPL.
+
+
+*everything seems linear
+*now check for homoscedasticity
+
+
+SPSSINC CREATE DUMMIES VARIABLE=hospital 
+ROOTNAME1=hospital_dummy 
+/OPTIONS ORDER=A USEVALUELABELS=YES USEML=YES OMITFIRST=NO.
+
+COMPUTE RESID_1_sq=RESID_1*RESID_1.
+EXECUTE.
+
+REGRESSION
+  /MISSING LISTWISE
+  /STATISTICS COEFF OUTS CI(95) BCOV R ANOVA
+  /CRITERIA=PIN(.05) POUT(.10)
+  /NOORIGIN 
+  /DEPENDENT RESID_1_sq
+  /METHOD=ENTER hospital_dummy_2 hospital_dummy_3 hospital_dummy_4 hospital_dummy_5 
+    hospital_dummy_6 hospital_dummy_7 hospital_dummy_8 hospital_dummy_9 hospital_dummy_10.
+
+*no heteroscedasticity
+
+*check for multicollinearity
+
+CORRELATIONS
+/VARIABLES age sex_female STAI_trait pain_cat mindfulness cortisol
+/PRINT=TWOTAIL NOSIG
+/MISSING=PAIRWISE.
+
+*no multicollinearity
+
+*the model is good
+
+
+*Scatterplot to see the relationship between age and pain in different clusters
+
+* Chart Builder.
+GGRAPH
+  /GRAPHDATASET NAME="graphdataset" VARIABLES=age pain hospital MISSING=LISTWISE REPORTMISSING=NO
+  /GRAPHSPEC SOURCE=INLINE
+  /FITLINE TOTAL=NO SUBGROUP=NO.
+BEGIN GPL
+  SOURCE: s=userSource(id("graphdataset"))
+  DATA: age=col(source(s), name("age"))
+  DATA: pain=col(source(s), name("pain"))
+  DATA: hospital=col(source(s), name("hospital"), unit.category())
+  GUIDE: axis(dim(1), label("age"))
+  GUIDE: axis(dim(2), label("pain"))
+  GUIDE: legend(aesthetic(aesthetic.color.interior), label("hospital"))
+  GUIDE: text.title(label("Grouped Scatter of pain by age by hospital"))
+  ELEMENT: point(position(age*pain), color.interior(hospital))
+  ELEMENT: line(position(smooth.linear(age*pain)),split(hospital))
+END GPL.
+
+
+
+
+*Scatterplot to see the relationship between age and pain in different clusters
+
+GGRAPH
+  /GRAPHDATASET NAME="graphdataset" VARIABLES=sex_female pain hospital MISSING=LISTWISE REPORTMISSING=NO
+  /GRAPHSPEC SOURCE=INLINE
+  /FITLINE TOTAL=NO SUBGROUP=NO.
+BEGIN GPL
+  SOURCE: s=userSource(id("graphdataset"))
+  DATA: sex_female=col(source(s), name("sex_female"))
+  DATA: pain=col(source(s), name("pain"))
+  DATA: hospital=col(source(s), name("hospital"), unit.category())
+  GUIDE: axis(dim(1), label("sex_female"))
+  GUIDE: axis(dim(2), label("pain"))
+  GUIDE: legend(aesthetic(aesthetic.color.interior), label("hospital"))
+  GUIDE: text.title(label("Grouped Scatter of pain by sex_female by hospital"))
+  ELEMENT: point(position(sex_female*pain), color.interior(hospital))
+  ELEMENT: line(position(smooth.linear(sex_female*pain)),split(hospital))
+END GPL.
+
+**Scatterplot to see the relationship between STAI_trait and pain in different clusters
+
+GGRAPH
+  /GRAPHDATASET NAME="graphdataset" VARIABLES=STAI_trait pain hospital MISSING=LISTWISE REPORTMISSING=NO
+  /GRAPHSPEC SOURCE=INLINE
+  /FITLINE TOTAL=NO SUBGROUP=NO.
+BEGIN GPL
+  SOURCE: s=userSource(id("graphdataset"))
+  DATA: STAI_trait=col(source(s), name("STAI_trait"))
+  DATA: pain=col(source(s), name("pain"))
+  DATA: hospital=col(source(s), name("hospital"), unit.category())
+  GUIDE: axis(dim(1), label("STAI_trait"))
+  GUIDE: axis(dim(2), label("pain"))
+  GUIDE: legend(aesthetic(aesthetic.color.interior), label("hospital"))
+  GUIDE: text.title(label("Grouped Scatter of pain by STAI_trait by hospital"))
+  ELEMENT: point(position(STAI_trait*pain), color.interior(hospital))
+  ELEMENT: line(position(smooth.linear(STAI_trait*pain)),split(hospital))
+END GPL.
+
+*Scatterplot to see the relationship between pain_cat and pain in different clusters
+
+GGRAPH
+  /GRAPHDATASET NAME="graphdataset" VARIABLES=pain_cat pain hospital MISSING=LISTWISE REPORTMISSING=NO
+  /GRAPHSPEC SOURCE=INLINE
+  /FITLINE TOTAL=NO SUBGROUP=NO.
+BEGIN GPL
+  SOURCE: s=userSource(id("graphdataset"))
+  DATA: pain_cat=col(source(s), name("pain_cat"))
+  DATA: pain=col(source(s), name("pain"))
+  DATA: hospital=col(source(s), name("hospital"), unit.category())
+  GUIDE: axis(dim(1), label("pain_cat"))
+  GUIDE: axis(dim(2), label("pain"))
+  GUIDE: legend(aesthetic(aesthetic.color.interior), label("hospital"))
+  GUIDE: text.title(label("Grouped Scatter of pain by pain_cat by hospital"))
+  ELEMENT: point(position(pain_cat*pain), color.interior(hospital))
+  ELEMENT: line(position(smooth.linear(pain_cat*pain)),split(hospital))
+END GPL.
+
+
+*Scatterplot to see the relationship between mindfulness and pain in different clusters
+
+GGRAPH
+  /GRAPHDATASET NAME="graphdataset" VARIABLES=mindfulness pain hospital MISSING=LISTWISE REPORTMISSING=NO
+  /GRAPHSPEC SOURCE=INLINE
+  /FITLINE TOTAL=NO SUBGROUP=NO.
+BEGIN GPL
+  SOURCE: s=userSource(id("graphdataset"))
+  DATA: mindfulness=col(source(s), name("mindfulness"))
+  DATA: pain=col(source(s), name("pain"))
+  DATA: hospital=col(source(s), name("hospital"), unit.category())
+  GUIDE: axis(dim(1), label("mindfulness"))
+  GUIDE: axis(dim(2), label("pain"))
+  GUIDE: legend(aesthetic(aesthetic.color.interior), label("hospital"))
+  GUIDE: text.title(label("Grouped Scatter of pain by mindfulness by hospital"))
+  ELEMENT: point(position(mindfulness*pain), color.interior(hospital))
+  ELEMENT: line(position(smooth.linear(mindfulness*pain)),split(hospital))
+END GPL.
+
+
+
+*Scatterplot to see the relationship between cortisol and pain in different clusters
+
+GGRAPH
+  /GRAPHDATASET NAME="graphdataset" VARIABLES=cortisol pain hospital MISSING=LISTWISE REPORTMISSING=NO
+  /GRAPHSPEC SOURCE=INLINE
+  /FITLINE TOTAL=NO SUBGROUP=NO.
+BEGIN GPL
+  SOURCE: s=userSource(id("graphdataset"))
+  DATA: cortisol=col(source(s), name("cortisol"))
+  DATA: pain=col(source(s), name("pain"))
+  DATA: hospital=col(source(s), name("hospital"), unit.category())
+  GUIDE: axis(dim(1), label("cortisol"))
+  GUIDE: axis(dim(2), label("pain"))
+  GUIDE: legend(aesthetic(aesthetic.color.interior), label("hospital"))
+  GUIDE: text.title(label("Grouped Scatter of pain by cortisol by hospital"))
+  ELEMENT: point(position(cortisol*pain), color.interior(hospital))
+  ELEMENT: line(position(smooth.linear(cortisol*pain)),split(hospital))
+END GPL.
+
+*since the linear mixed model reverse the dummy variable, I make another variable reversely
+
+
+RECODE sex ('male'=1) ('female'=0) (MISSING=SYSMIS) INTO sex_male.
+EXECUTE.
+
+*build a linear mixed model
+
+MIXED pain BY sex_male WITH age STAI_trait pain_cat mindfulness cortisol
+  /CRITERIA=CIN(95) MXITER(100) MXSTEP(10) SCORING(1) SINGULAR(0.000000000001) HCONVERGE(0, 
+    ABSOLUTE) LCONVERGE(0, ABSOLUTE) PCONVERGE(0.000001, ABSOLUTE)
+  /FIXED=sex_male age STAI_trait pain_cat mindfulness cortisol | SSTYPE(3)
+  /METHOD=REML
+  /PRINT=SOLUTION
+  /RANDOM=INTERCEPT | SUBJECT(hospital) COVTYPE(VC)
+  /SAVE=FIXPRED.
+
+*build the null model
+
+
+MIXED pain BY sex_male WITH age STAI_trait pain_cat mindfulness cortisol
+  /CRITERIA=CIN(95) MXITER(100) MXSTEP(10) SCORING(1) SINGULAR(0.000000000001) HCONVERGE(0, 
+    ABSOLUTE) LCONVERGE(0, ABSOLUTE) PCONVERGE(0.000001, ABSOLUTE)
+  /FIXED=| SSTYPE(3)
+  /METHOD=REML
+  /PRINT=SOLUTION
+  /RANDOM=INTERCEPT | SUBJECT(hospital) COVTYPE(VC).
+
+*get variance to calculate for R-squared
+
+DESCRIPTIVES VARIABLES=FXPRED_1
+  /STATISTICS=MEAN STDDEV VARIANCE MIN MAX.
+
+
+
+*from now on is dataset4
+
+
+DATASET ACTIVATE DataSet7.
+FREQUENCIES VARIABLES=sex pain age STAI_trait pain_cat cortisol_serum cortisol_saliva mindfulness
+  /NTILES=4
+  /STATISTICS=STDDEV MINIMUM MAXIMUM MEAN MEDIAN MODE SKEWNESS SESKEW KURTOSIS SEKURT
+  /HISTOGRAM NORMAL
+  /ORDER=ANALYSIS.
+
+RECODE sex ('male'=0) ('female'=1) (MISSING=SYSMIS) INTO sex_female.
+EXECUTE.
+
+COMPUTE cortisol=MEAN(cortisol_serum,cortisol_saliva).
+EXECUTE.
+
+COMPUTE pred_pain=1.496043-0.322121*sex_female-0.015655*age-0.030892*STAI_trait+0.094585*
+    pain_cat-0.223107*mindfulness+0.634427*cortisol.
+EXECUTE.
+
+COMPUTE res_pain_sq=(pain-pred_pain)*(pain-pred_pain).
+EXECUTE.
+
+COMPUTE total_ss_pain=(pain-4.992103985)*(pain-4.992103985).
+EXECUTE.
+
+*get the sum of residuals and sum of total
+
+DESCRIPTIVES VARIABLES=total_ss_pain res_pain_sq
+  /STATISTICS=MEAN SUM.
+
+

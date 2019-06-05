@@ -1,5 +1,3 @@
-# SIMM32-Assignments
-
 * Encoding: UTF-8.
 
 *dataset3
@@ -222,7 +220,7 @@ REGRESSION
   /STATISTICS COEFF OUTS CI(95) BCOV R ANOVA
   /CRITERIA=PIN(.05) POUT(.10)
   /NOORIGIN 
-  /DEPENDENT RESID_1
+  /DEPENDENT RESID_1_sq
   /METHOD=ENTER hospital_dummy_2 hospital_dummy_3 hospital_dummy_4 hospital_dummy_5 
     hospital_dummy_6 hospital_dummy_7 hospital_dummy_8 hospital_dummy_9 hospital_dummy_10.
 
